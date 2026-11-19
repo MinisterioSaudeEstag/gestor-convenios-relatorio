@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import SugestaoIA from "@/components/SugestaoIA";
-import { analisarDocumentos } from "@/lib/analisar";
 import { montarPatch } from "@/lib/ia";
+import { ETAPAS } from "@/lib/modelo";
 
 export default function AnaliseIAPanel({ convenio, etapa, documentos, onAplicarPatch }) {
   const [ids, setIds] = useState(null);
@@ -46,19 +46,24 @@ export default function AnaliseIAPanel({ convenio, etapa, documentos, onAplicarP
     setAnalisando(true);
     setErro("");
     try {
-      const resultadoIA = await analisarDocumentos({ convenio, etapa, documentos: selecionados });
-      if (resultadoIA) {
-        await fetch(`http://localhost:3001/api/sugestoes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            convenio_id: convenio.id,
-            etapa,
-            dados: resultadoIA,
-            status: 'pendente'
-          }),
-        });
+      const etapaAtual = ETAPAS?.find((e) => e.id === etapa);
+      const camposEtapa = etapaAtual?.campos?.map((c) => c.chave || c.id || c.name).filter(Boolean) || [];
+
+      const response = await fetch(`http://localhost:3001/api/convenios/${convenio.id}/analisar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          etapa,
+          documentosIds: selecionados.map((d) => d.id),
+          camposEtapa,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível concluir a análise com Gemini.");
       }
+
       await carregar();
     } catch (e) {
       setErro(e?.message || "Não foi possível concluir a análise.");
@@ -74,8 +79,8 @@ export default function AnaliseIAPanel({ convenio, etapa, documentos, onAplicarP
       onAplicarPatch(patch);
       
       await fetch(`http://localhost:3001/api/sugestoes/${sugestao.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "aplicada" }),
       });
       await carregar();
@@ -89,8 +94,8 @@ export default function AnaliseIAPanel({ convenio, etapa, documentos, onAplicarP
   const descartar = async (sugestao) => {
     try {
       await fetch(`http://localhost:3001/api/sugestoes/${sugestao.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "descartada" }),
       });
       await carregar();
@@ -106,7 +111,7 @@ export default function AnaliseIAPanel({ convenio, etapa, documentos, onAplicarP
           <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
           Análise assistida
         </h3>
-        <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">IA</span>
+        <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">Gemini IA</span>
       </div>
 
       <div className="space-y-3 px-4 py-3">

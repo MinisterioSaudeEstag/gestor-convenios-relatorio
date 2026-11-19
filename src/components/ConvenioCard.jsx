@@ -9,6 +9,8 @@ export default function ConvenioCard({ convenio }) {
   const geral = progressoGeral(convenio);
   const concluidas = progresso.filter((e) => e.pct >= 100).length;
   const concluido = geral >= 100;
+  const numeroExibicao = convenio.numero_convenio || convenio.numero || "sem número";
+  const entidadeExibicao = convenio.convenente || convenio.entidade || "Entidade não informada";
 
   return (
     <Link
@@ -19,7 +21,7 @@ export default function ConvenioCard({ convenio }) {
         <div className="min-w-0">
           <div className="mb-1.5 flex items-center gap-2.5">
             <span className="num-mono text-[11px] tracking-[0.06em] text-muted-foreground">
-              {convenio.numero || "sem número"}
+              {numeroExibicao}
             </span>
             <span
               className={`rounded-full px-2 py-[2px] text-[9.5px] font-semibold uppercase tracking-[0.1em] ${
@@ -32,7 +34,7 @@ export default function ConvenioCard({ convenio }) {
             </span>
           </div>
           <h3 className="truncate text-[15px] font-semibold tracking-tight text-foreground">
-            {convenio.entidade || "Entidade não informada"}
+            {entidadeExibicao}
           </h3>
           <p className="mt-0.5 line-clamp-1 text-[13px] text-muted-foreground">
             {convenio.objeto || "Objeto não informado"}

@@ -1,146 +1,130 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState } from "react"; 
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { UserPlus, Lock, Mail, Loader2 } from "lucide-react";
-import AuthLayout from "@/components/AuthLayout";
-import GoogleIcon from "@/components/GoogleIcon";
-import { safeReturnTo } from "@/lib/authReturnTo";
+import { User, Mail, Lock, UserPlus, Loader2 } from "lucide-react";
 
-export default function Register() {
+export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState("");
+  const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  async function handleRegister(e) {
     e.preventDefault();
-    setError("");
-    if (password !== confirmPassword) {
-      setError("As senhas não coincidem.");
+    setLoading(true);
+    setErro("");
+
+    const isInstitutional = email.endsWith("@saude.gov.br") || email.endsWith("@outlook.com");
+    if (!isInstitutional) {
+      setErro("Erro: Apenas e-mails institucionais (@saude.gov.br ou @outlook.com) são permitidos.");
+      setLoading(false);
       return;
     }
-    setLoading(true);
-    
-    // Simulação local para ambiente sem backend/banco de dados
-    setTimeout(() => {
-      const mockUser = { id: "1", email, name: email.split("@")[0] };
-      localStorage.setItem("kora_user", JSON.stringify(mockUser));
-      localStorage.setItem("kora_token", "local-mock-token");
-      setLoading(false);
-      window.location.href = safeReturnTo();
-    }, 600);
-  };
 
-  const handleGoogle = () => {
-    const mockUser = { id: "1", email: "gestor.sus@saude.gov.br", name: "Gestor SUS" };
-    localStorage.setItem("kora_user", JSON.stringify(mockUser));
-    localStorage.setItem("kora_token", "local-mock-token");
-    window.location.href = safeReturnTo();
-  };
+    try {
+      const response = await fetch("http://localhost:3001/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, full_name: fullName, role: "employee" }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao criar conta.");
+      }
+
+      alert("Conta criada com sucesso!");
+      navigate("/login");
+    } catch (err) {
+      setErro(err.message || "Ocorreu um erro ao registrar.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <AuthLayout
-      icon={UserPlus}
-      title="Criar sua conta (Modo Local)"
-      subtitle="Acesso livre para testes e validação do Agente Kora"
-      footer={
-        <>
-          Já tem uma conta?{" "}
-          <Link to="/login" className="text-primary font-medium hover:underline">
-            Entrar
-          </Link>
-        </>
-      }
-    >
-      <Button
-        variant="outline"
-        className="w-full h-12 text-sm font-medium mb-6"
-        onClick={handleGoogle}
-        type="button"
-      >
-        <GoogleIcon className="w-5 h-5 mr-2" />
-        Continuar com Google (Simulado)
-      </Button>
-
-      <div className="relative mb-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border" />
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-border/60 p-8">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-[#004785] rounded-2xl mx-auto mb-4 flex items-center justify-center text-white font-bold text-2xl overflow-hidden shadow-sm">
+            <img src="/logo-chronotask.jpeg" alt="Logo-chronotask" className="w-full h-full object-cover" />
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">Crie sua conta</h1>
+          <p className="text-muted-foreground text-sm mt-2">Preencha os dados para acessar o sistema</p>
         </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-3 text-muted-foreground">ou com e-mail</span>
+
+        {erro && (
+          <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-600 text-center">
+            {erro}
+          </div>
+        )}
+
+        <form onSubmit={handleRegister} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Nome e Sobrenome</label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input 
+                type="text" 
+                placeholder="Arthur Vinícius" 
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-[#004785] outline-none transition-all"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">E-mail Institucional</label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input 
+                type="email" 
+                placeholder="nome@saude.gov.br" 
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-[#004785] outline-none transition-all"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Senha</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input 
+                type="password" 
+                placeholder="••••••••" 
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-[#004785] outline-none transition-all"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <Button 
+            type="submit" 
+            disabled={loading} 
+            className="w-full bg-[#004785] hover:bg-[#003566] text-white py-6 gap-2"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+            {loading ? "Cadastrando..." : "Criar Conta"}
+          </Button>
+        </form>
+
+        <div className="mt-6 text-center text-sm text-muted-foreground">
+          Já possui conta?{" "}
+          <Link to="/login" className="text-[#004785] font-semibold hover:underline">
+            Faça login
+          </Link>
         </div>
       </div>
-
-      {error && (
-        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">E-mail</Label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              autoFocus
-              placeholder="seu.email@saude.gov.br"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="pl-10 h-12"
-              required
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Senha</Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-            <Input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 h-12"
-              required
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="confirm">Confirmar senha</Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-            <Input
-              id="confirm"
-              type="password"
-              autoComplete="new-password"
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="pl-10 h-12"
-              required
-            />
-          </div>
-        </div>
-        <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Entrando no sistema…
-            </>
-          ) : (
-            "Criar conta e Acessar"
-          )}
-        </Button>
-      </form>
-    </AuthLayout>
+    </div>
   );
 }

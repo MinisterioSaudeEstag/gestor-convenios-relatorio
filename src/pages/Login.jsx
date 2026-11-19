@@ -1,129 +1,111 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState } from "react"; 
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { LogIn, Lock, Mail, Loader2 } from "lucide-react";
-import AuthLayout from "@/components/AuthLayout";
-import GoogleIcon from "@/components/GoogleIcon";
-import { safeReturnTo } from "@/lib/authReturnTo";
+import { Lock, Mail, LogIn, Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/AuthContext";
 
-export default function Login() {
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState("");
+  const { login } = useAuth();
+  const navigate = useNavigate(); 
 
-  const handleSubmit = async (e) => {
+  async function handleLogin(e) {
     e.preventDefault();
-    setError("");
     setLoading(true);
+    setErro("");
 
-    setTimeout(() => {
-      const mockUser = { id: "1", email, name: email.split("@")[0] };
-      localStorage.setItem("kora_user", JSON.stringify(mockUser));
-      localStorage.setItem("kora_token", "local-mock-token");
-      setLoading(false);
-      window.location.href = safeReturnTo();
-    }, 600);
-  };
+    try {
+      const response = await fetch("http://localhost:3001/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-  const handleGoogle = () => {
-    const mockUser = { id: "1", email: "gestor.sus@saude.gov.br", name: "Gestor SUS" };
-    localStorage.setItem("kora_user", JSON.stringify(mockUser));
-    localStorage.setItem("kora_token", "local-mock-token");
-    window.location.href = safeReturnTo();
-  };
+      const data = await response.json();
 
-  return (
-    <AuthLayout
-      icon={LogIn}
-      title="Bem-vindo de volta"
-      subtitle="Acesse sua conta para continuar (Modo Local)"
-      footer={
-        <>
-          Ainda não tem acesso?{" "}
-          <Link to="/register" className="text-primary font-medium hover:underline">
-            Criar conta
-          </Link>
-        </>
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao autenticar.");
       }
-    >
-      <Button
-        variant="outline"
-        className="w-full h-12 text-sm font-medium mb-6"
-        onClick={handleGoogle}
-        type="button"
-      >
-        <GoogleIcon className="w-5 h-5 mr-2" />
-        Continuar com Google (Simulado)
-      </Button>
 
-      <div className="relative mb-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border" />
+      login(data.user);
+      navigate("/"); 
+    } catch (err) {
+      setErro(err.message || "Ocorreu um erro inesperado ao entrar.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (    
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-border/60 p-8">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-[#004785] rounded-2xl mx-auto mb-4 flex items-center justify-center text-white font-bold text-2xl overflow-hidden shadow-sm">
+            <img src="/logo-chronotask.jpeg" alt="Logo-chronotask" className="w-full h-full object-cover" />
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">Bem-vindo ao Convênios MS</h1>
+          <p className="text-muted-foreground text-sm mt-2">Entre com seu e-mail institucional</p>
         </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-3 text-muted-foreground">ou com e-mail</span>
+
+        <div className="space-y-6">
+          {erro && (
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-600 text-center">
+              {erro}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">E-mail</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input 
+                  type="email" 
+                  placeholder="nome@saude.gov.br" 
+                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-[#004785] outline-none transition-all"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Senha</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input 
+                  type="password" 
+                  placeholder="••••••••" 
+                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-[#004785] outline-none transition-all"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <Button 
+              type="submit" 
+              disabled={loading} 
+              className="w-full bg-[#004785] hover:bg-[#003566] text-white py-6 gap-2"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
+              {loading ? "Entrando..." : "Acessar Sistema"}
+            </Button>
+          </form>
+        </div>
+
+        <div className="mt-6 text-center text-sm text-muted-foreground">
+          Não tem conta?{" "}
+          <Link to="/register" className="text-[#004785] font-semibold hover:underline">
+            Cadastre-se aqui
+          </Link>
         </div>
       </div>
-
-      {error && (
-        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">E-mail</Label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              autoFocus
-              placeholder="seu.email@saude.gov.br"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="pl-10 h-12"
-              required
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password">Senha</Label>
-            <Link to="/forgot-password" className="text-xs text-primary hover:underline">
-              Esqueci minha senha
-            </Link>
-          </div>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 h-12"
-              required
-            />
-          </div>
-        </div>
-        <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Entrando…
-            </>
-          ) : (
-            "Entrar"
-          )}
-        </Button>
-      </form>
-    </AuthLayout>
+    </div>
   );
 }

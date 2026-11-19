@@ -39,11 +39,13 @@ export default function NovoConvenioDialog({ open, onOpenChange, onCriado }) {
       setObjeto("");
       setValorGlobal("");
       setValorRepasse("");
-      onOpenNameChange ? onOpenNameChange(false) : onOpenChange(false);
+      
+      // Correção do nome da função de fechar o dialog
+      onOpenChange(false);
       
       if (onCriado) onCriado(convenioCriado.id);
     } catch (e2) {
-      setErro("Não foi possível salvar o convênio no NeonDB. Tente novamente.");
+      setErro("Não foi possível salvar o convênio no NeonDB. Verifique se o servidor backend está rodando na porta 3001.");
     } finally {
       setSalvando(false);
     }

@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Download, Loader2 } from "lucide-react";
-import { base44 } from "@/api/base44Client";
 import { ETAPAS, calcularProgresso, pendenciasDaEtapa } from "@/lib/modelo";
 import { baixarRelatorio, gerarHtmlRelatorio, nomeArquivoRelatorio } from "@/lib/gerarRelatorio";
 
@@ -12,11 +11,20 @@ export default function Relatorio() {
 
   useEffect(() => {
     let ativo = true;
-    base44.entities.Convenio.get(id).then((c) => {
-      if (!ativo) return;
-      setConvenio(c);
-      setCarregando(false);
-    });
+    const carregarConvenio = async () => {
+      try {
+        const response = await fetch(`http://localhost:3001/api/convenios`);
+        const lista = await response.json();
+        const c = lista.find((item) => String(item.id) === String(id));
+        if (!ativo) return;
+        setConvenio(c || null);
+      } catch (e) {
+        console.error("Erro ao carregar convênio para relatório:", e);
+      } finally {
+        if (ativo) setCarregando(false);
+      }
+    };
+    carregarConvenio();
     return () => {
       ativo = false;
     };
@@ -35,10 +43,21 @@ export default function Relatorio() {
       }));
   }, [convenio]);
 
-  if (carregando || !convenio) {
+  if (carregando) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!convenio) {
+    return (
+      <div className="mx-auto max-w-md py-20 text-center">
+        <p className="text-[14px] font-medium text-foreground">Convênio não encontrado.</p>
+        <Link to="/" className="mt-4 inline-block text-[12.5px] text-primary hover:underline">
+          Voltar ao painel inicial
+        </Link>
       </div>
     );
   }
@@ -56,7 +75,7 @@ export default function Relatorio() {
           </Link>
           <h1 className="mt-2 text-[21px] font-semibold tracking-[-0.02em] sm:text-[24px]">Relatório final</h1>
           <p className="mt-1 text-[12.5px] text-muted-foreground">
-            Convênio {convenio.numero} — {convenio.entidade}
+            Convênio {convenio.numero_convenio || convenio.numero} — {convenio.convenente || convenio.entidade}
           </p>
         </div>
         <button

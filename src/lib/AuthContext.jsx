@@ -21,8 +21,19 @@ export const AuthProvider = ({ children }) => {
     checkUser();
   }, []);
 
+  const login = (userData) => {
+    localStorage.setItem("kora_user", JSON.stringify(userData));
+    setUser(userData);
+  };
+
+  const logout = () => {
+    localStorage.removeItem("kora_user");
+    setUser(null);
+    window.location.href = "/login";
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, loading, isAuthenticated: !!user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
