@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Lock, Mail, LogIn, Loader2, FileCheck2 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
+import LogoMarca from "@/components/LogoMarca";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");

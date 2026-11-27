@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { User, Mail, Lock, UserPlus, Loader2, FileCheck2 } from "lucide-react";
+import LogoMarca from "@/components/LogoMarca";
 
 const DOMINIOS_PERMITIDOS = ["@saude.gov.br", "@outlook.com"];
 
