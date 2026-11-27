@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AlertTriangle, CheckCheck, Sparkles, X } from "lucide-react";
 import { CAMPOS_DADOS, QUESTIONARIOS } from "@/lib/modelo";
 
@@ -24,12 +24,37 @@ const rotuloLongo = (etapa, chave) => {
   return pergunta ? pergunta.titulo : "";
 };
 
+const parseDadosSugestao = (sugestao) => {
+  let raw = sugestao?.dados;
+  if (typeof raw === "string") {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      raw = {};
+    }
+  }
+  const base = raw && typeof raw === "object" ? raw : {};
+  return {
+    campos: base.campos && typeof base.campos === "object" ? base.campos : (sugestao?.campos || {}),
+    confianca: base.confianca || sugestao?.confianca || "media",
+    resumo: base.resumo || sugestao?.resumo || "",
+    lacunas: Array.isArray(base.lacunas) ? base.lacunas : (sugestao?.lacunas || []),
+    equipamentos: Array.isArray(base.equipamentos) ? base.equipamentos : (sugestao?.equipamentos || []),
+  };
+};
+
 export default function SugestaoIA({ sugestao, onAplicar, onDescartar, aplicando }) {
-  const campos = sugestao.campos || {};
+  const normalizada = parseDadosSugestao(sugestao);
+  const campos = normalizada.campos;
   const chaves = Object.keys(campos);
-  const equipamentos = sugestao.equipamentos || [];
+  const equipamentos = normalizada.equipamentos;
   const [selecionados, setSelecionados] = useState(chaves);
   const [incluirEquipamentos, setIncluirEquipamentos] = useState(true);
+
+  useEffect(() => {
+    setSelecionados(Object.keys(parseDadosSugestao(sugestao).campos));
+    setIncluirEquipamentos(true);
+  }, [sugestao?.id]);
 
   const alternar = (chave) => {
     setSelecionados((prev) =>
@@ -46,26 +71,26 @@ export default function SugestaoIA({ sugestao, onAplicar, onDescartar, aplicando
         </div>
         <span
           className={`rounded-full border px-2 py-[1px] text-[9.5px] font-semibold uppercase tracking-[0.08em] ${
-            CONFIANCA[sugestao.confianca] || CONFIANCA.media
+            CONFIANCA[normalizada.confianca] || CONFIANCA.media
           }`}
         >
-          confiança {sugestao.confianca || "media"}
+          confiança {normalizada.confianca || "media"}
         </span>
       </div>
 
       <div className="space-y-3 px-3.5 py-3">
-        {sugestao.resumo ? (
-          <p className="text-[11.5px] leading-relaxed text-foreground/80">{sugestao.resumo}</p>
+        {normalizada.resumo ? (
+          <p className="text-[11.5px] leading-relaxed text-foreground/80">{normalizada.resumo}</p>
         ) : null}
 
-        {(sugestao.lacunas || []).length ? (
+        {normalizada.lacunas.length ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-2">
             <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-700">
               <AlertTriangle className="h-3 w-3" />
               Não encontrado nos documentos
             </p>
             <ul className="mt-1 space-y-0.5">
-              {sugestao.lacunas.map((lacuna, i) => (
+              {normalizada.lacunas.map((lacuna, i) => (
                 <li key={i} className="text-[11px] leading-relaxed text-amber-800">
                   · {lacuna}
                 </li>
@@ -134,19 +159,19 @@ export default function SugestaoIA({ sugestao, onAplicar, onDescartar, aplicando
           <button
             type="button"
             disabled={aplicando || (!selecionados.length && !(equipamentos.length && incluirEquipamentos))}
-            onClick={() => onAplicar(selecionados, equipamentos.length && incluirEquipamentos)}
+            onClick={() => onAplicar(selecionados, Boolean(equipamentos.length && incluirEquipamentos))}
             className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[11.5px] font-medium text-primary-foreground transition-colors hover:bg-[#085533] disabled:opacity-50"
           >
-            {aplicando ? <Sparkles className="h-3 w-3 animate-pulse" /> : <CheckCheck className="h-3 w-3" />}
+            <CheckCheck className="h-3.5 w-3.5" />
             Aplicar selecionados
           </button>
           <button
             type="button"
             disabled={aplicando}
             onClick={onDescartar}
-            className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-[11.5px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-[11.5px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
           >
-            <X className="h-3 w-3" />
+            <X className="h-3.5 w-3.5" />
             Descartar
           </button>
         </div>

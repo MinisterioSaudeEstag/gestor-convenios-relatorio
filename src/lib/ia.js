@@ -35,7 +35,6 @@ export function valorExibivel(etapa, chave, valor) {
   return v;
 }
 
-/** Converte "R$ 1.234,56" / "1,234.56" / 1234.56 em número. */
 export function parseNumero(valor) {
   if (valor === null || valor === undefined || valor === "") return undefined;
   if (typeof valor === "number") return valor;
@@ -57,15 +56,40 @@ export function normalizarData(valor) {
   return v;
 }
 
-/** Monta o patch a ser salvo no convênio a partir da sugestão validada. */
+function extrairDadosSugestao(sugestao) {
+  let raw = sugestao?.dados;
+  if (typeof raw === "string") {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      raw = {};
+    }
+  }
+  const base = raw && typeof raw === "object" ? raw : {};
+  return {
+    campos:
+      base.campos && typeof base.campos === "object"
+        ? base.campos
+        : sugestao?.campos && typeof sugestao.campos === "object"
+        ? sugestao.campos
+        : {},
+    equipamentos: Array.isArray(base.equipamentos)
+      ? base.equipamentos
+      : Array.isArray(sugestao?.equipamentos)
+      ? sugestao.equipamentos
+      : [],
+  };
+}
+
 export function montarPatch(convenio, sugestao, selecionados, aplicarEquipamentos) {
   const etapa = sugestao.etapa;
-  const campos = sugestao.campos || {};
+  const { campos, equipamentos } = extrairDadosSugestao(sugestao);
   const patch = {};
 
   if (QUESTIONARIOS[etapa]) {
     const atual = { ...(convenio[etapa] || {}) };
     selecionados.forEach((chave) => {
+      if (!(chave in campos)) return;
       const [id, sub] = chave.split(".");
       if (!sub) return;
       atual[id] = { ...(atual[id] || {}), [sub]: campos[chave] };
@@ -76,14 +100,15 @@ export function montarPatch(convenio, sugestao, selecionados, aplicarEquipamento
 
   if (etapa === "dados") {
     selecionados.forEach((chave) => {
+      if (!(chave in campos)) return;
       const meta = CAMPOS_DADOS.find((f) => f.key === chave);
       let valor = campos[chave];
       if (meta?.tipo === "moeda") valor = parseNumero(valor) ?? valor;
       if (meta?.tipo === "data") valor = normalizarData(valor);
       patch[chave] = valor;
     });
-    if (aplicarEquipamentos && (sugestao.equipamentos || []).length) {
-      patch.planilha = sugestao.equipamentos.map((item) => ({
+    if (aplicarEquipamentos && equipamentos.length) {
+      patch.planilha = equipamentos.map((item) => ({
         item: item.item || "",
         quantidade_aprovada: parseNumero(item.quantidade_aprovada) ?? null,
         valor_unitario_aprovado: parseNumero(item.valor_unitario_aprovado) ?? null,
@@ -100,6 +125,7 @@ export function montarPatch(convenio, sugestao, selecionados, aplicarEquipamento
 
   const atual = { ...(convenio[etapa] || {}) };
   selecionados.forEach((chave) => {
+    if (!(chave in campos)) return;
     atual[chave] = campos[chave];
   });
   patch[etapa] = atual;

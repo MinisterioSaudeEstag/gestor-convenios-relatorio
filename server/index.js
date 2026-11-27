@@ -20,6 +20,41 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json({ limit: '25mb' }));
 
+const CHAVES_DADOS = [
+  'numero',
+  'processo_sei',
+  'entidade',
+  'cnpj',
+  'municipio',
+  'objeto',
+  'valor_global',
+  'valor_concedente',
+  'valor_contrapartida',
+  'valor_executado',
+  'vigencia_inicio',
+  'vigencia_fim',
+  'oficio_circular',
+  'nota_tecnica',
+  'responsavel',
+];
+
+let cachedConveniosColumns = null;
+
+async function getConveniosValidColumns() {
+  if (cachedConveniosColumns) {
+    return cachedConveniosColumns;
+  }
+  const colsRes = await pool.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'convenios'`
+  );
+  cachedConveniosColumns = new Set(
+    colsRes.rows
+      .map((r) => r.column_name)
+      .filter((col) => !['id', 'criado_em', 'atualizado_em'].includes(col))
+  );
+  return cachedConveniosColumns;
+}
+
 app.post('/api/auth/register', async (req, res) => {
   const { email, password, full_name, role } = req.body;
   try {
@@ -57,7 +92,6 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// --- HEALTHCHECK ---
 app.get('/api/health', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW()');
@@ -65,6 +99,23 @@ app.get('/api/health', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao conectar ao banco de dados' });
+  }
+});
+
+app.get('/api/gemini-models', async (req, res) => {
+  try {
+    const modelos = [];
+    for await (const model of await ai.models.list()) {
+      modelos.push({
+        name: model.name,
+        displayName: model.displayName,
+        supportedActions: model.supportedActions,
+      });
+    }
+    res.json(modelos);
+  } catch (err) {
+    console.error('Erro ao listar modelos Gemini:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -110,11 +161,12 @@ app.post('/api/convenios', async (req, res) => {
 
 app.put('/api/convenios/:id', async (req, res) => {
   const { id } = req.params;
-  const fields = req.body;
+  const fields = req.body || {};
   try {
-    const keys = Object.keys(fields);
+    const colunasValidas = await getConveniosValidColumns();
+    const keys = Object.keys(fields).filter((key) => colunasValidas.has(key));
     if (keys.length === 0) {
-      return res.status(400).json({ error: 'Nenhum campo fornecido para atualização.' });
+      return res.status(400).json({ error: 'Nenhum campo válido fornecido para atualização.' });
     }
 
     const setQuery = keys.map((key, index) => `${key} = $${index + 1}`).join(', ');
@@ -262,6 +314,9 @@ app.post('/api/convenios/:id/analisar', async (req, res) => {
       mime,
     }));
 
+    const chavesEsperadas =
+      camposEtapa.length > 0 ? camposEtapa : etapa === 'dados' ? CHAVES_DADOS : [];
+
     const parts = [
       {
         text: `
@@ -274,13 +329,20 @@ ${JSON.stringify(convenio, null, 2)}
 Documentos selecionados:
 ${JSON.stringify(metadadosDocs, null, 2)}
 
-${camposEtapa.length ? `Chaves esperadas para esta etapa: ${JSON.stringify(camposEtapa)}` : ''}
+${chavesEsperadas.length ? `Chaves esperadas dentro de "campos": ${JSON.stringify(chavesEsperadas)}` : ''}
 
 Regras obrigatórias:
-1. Retorne APENAS um objeto JSON válido contendo os campos sugeridos (chave -> valor).
-2. Não invente dados numéricos, datas ou valores que não constem nos documentos ou no convênio; omita chaves que não puder inferir com segurança.
-3. Use datas no formato YYYY-MM-DD e números sem formatação de moeda (ex.: 150000.00).
-4. Se a etapa envolver equipamentos, você pode incluir a chave "equipamentos" como array de objetos quando aplicável.
+1. Retorne APENAS um JSON válido com esta estrutura:
+{
+  "campos": { "<chave>": "<valor>" },
+  "confianca": "alta" | "media" | "baixa",
+  "resumo": "resumo curto do que foi encontrado nos documentos",
+  "lacunas": ["informação não encontrada ou pendente nos documentos"],
+  "equipamentos": []
+}
+2. Não invente dados numéricos, datas ou valores que não constem nos documentos ou no convênio; omita chaves que não puder inferir com segurança e liste o que faltou em "lacunas".
+3. Use datas no formato YYYY-MM-DD (ex.: "2012-12-31") e valores numéricos sem formatação de moeda (ex.: 1100000.00).
+4. Se a etapa envolver equipamentos, preencha "equipamentos" como array de objetos quando aplicável.
 `,
       },
     ];
@@ -309,16 +371,44 @@ Regras obrigatórias:
       }
     }
 
-    const response = await ai.models.generateContent({
-      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-      contents: parts,
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0.2,
-      },
-    });
+    const modelo = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+    const maxTentativas = 3;
+    let response;
 
-    const dadosExtraidos = JSON.parse(response.text || '{}');
+    for (let tentativa = 1; tentativa <= maxTentativas; tentativa++) {
+      try {
+        response = await ai.models.generateContent({
+          model: modelo,
+          contents: parts,
+          config: {
+            responseMimeType: 'application/json',
+            temperature: 0.2,
+          },
+        });
+        break;
+      } catch (apiErr) {
+        const status = apiErr?.status || apiErr?.code;
+        const temporario = status === 503 || status === 429;
+        if (!temporario || tentativa === maxTentativas) {
+          throw apiErr;
+        }
+        const jitter = Math.floor(Math.random() * 500);
+        const esperaMs = tentativa * 2000 + jitter;
+        console.warn(
+          `Gemini retornou ${status} no modelo "${modelo}" (tentativa ${tentativa}/${maxTentativas}). Aguardando ${esperaMs}ms...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, esperaMs));
+      }
+    }
+
+    const parsed = JSON.parse(response.text || '{}');
+    const payloadSugestao = {
+      campos: parsed.campos && typeof parsed.campos === 'object' ? parsed.campos : {},
+      confianca: ['alta', 'media', 'baixa'].includes(parsed.confianca) ? parsed.confianca : 'media',
+      resumo: typeof parsed.resumo === 'string' ? parsed.resumo : '',
+      lacunas: Array.isArray(parsed.lacunas) ? parsed.lacunas : [],
+      equipamentos: Array.isArray(parsed.equipamentos) ? parsed.equipamentos : [],
+    };
 
     const insertQuery = `
       INSERT INTO sugestoes_ia (convenio_id, etapa, dados, status)
@@ -328,12 +418,18 @@ Regras obrigatórias:
     const { rows } = await pool.query(insertQuery, [
       id,
       etapa,
-      JSON.stringify(dadosExtraidos),
+      JSON.stringify(payloadSugestao),
     ]);
 
     res.status(201).json(rows[0]);
   } catch (err) {
     console.error('Erro na análise com Gemini:', err);
+    const status = err?.status || err?.code;
+    if (status === 503 || status === 429) {
+      return res.status(503).json({
+        error: 'O modelo do Gemini está com alta demanda no momento. Aguarde alguns instantes e tente novamente.',
+      });
+    }
     res.status(500).json({ error: err.message || 'Falha ao processar análise com Gemini.' });
   }
 });
