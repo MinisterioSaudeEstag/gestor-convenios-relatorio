@@ -434,6 +434,10 @@ Regras obrigatórias:
   }
 });
 
-app.listen(port, () => {
-  console.log(`🚀 Servidor backend rodando na porta ${port}`);
-});
+if (process.env.VERCEL !== '1') {
+  app.listen(port, () => {
+    console.log(`🚀 Servidor backend rodando na porta ${port}`);
+  });
+}
+
+export default app;
