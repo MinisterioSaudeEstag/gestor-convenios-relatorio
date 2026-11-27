@@ -43,17 +43,15 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/40 px-4">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-sm">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary shadow-xs">
-            <FileCheck2 className="h-7 w-7" />
-          </div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">
-            Convênios MS · Relatórios
-          </h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Entre com seu e-mail institucional para acessar o sistema
-          </p>
-        </div>
+        <div className="mb-8 flex flex-col items-center text-center">
+  <LogoMarca size="lg" className="mb-4" />
+  <h1 className="text-xl font-bold tracking-tight text-foreground">
+    Convênios MS · Relatórios
+  </h1>
+  <p className="mt-1.5 text-sm text-muted-foreground">
+    Entre com seu e-mail institucional para acessar o sistema
+  </p>
+</div>
 
         <div className="space-y-6">
           {erro && (
