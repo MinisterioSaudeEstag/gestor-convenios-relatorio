@@ -42,16 +42,16 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/40 px-4">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-sm">
-        <div className="mb-8 flex flex-col items-center text-center">
-  <LogoMarca size="lg" className="mb-4" />
-  <h1 className="text-xl font-bold tracking-tight text-foreground">
-    Convênios MS · Relatórios
-  </h1>
-  <p className="mt-1.5 text-sm text-muted-foreground">
-    Entre com seu e-mail institucional para acessar o sistema
-  </p>
-</div>
+  <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-sm">
+    <div className="mb-8 flex flex-col items-center text-center">
+      <LogoMarca size="lg" className="mb-4" />
+      <h1 className="text-xl font-bold tracking-tight text-foreground">
+        Convênios MS · Relatórios
+      </h1>
+      <p className="mt-1.5 text-sm text-muted-foreground">
+        Entre com seu e-mail institucional para acessar o sistema
+      </p>
+    </div>
 
         <div className="space-y-6">
           {erro && (
